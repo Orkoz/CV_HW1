@@ -36,7 +36,7 @@ def tranforamImageToFitVGG(im):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     unloader = transforms.ToPILImage()
-    compose = transforms.Compose([transforms.Resize((224,224)), transforms.ToTensor(), normalize])
+    compose = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), normalize])
     return unloader(compose(im))
 
 # ################# section 2 ##########################
@@ -67,3 +67,27 @@ for i, (input, target) in enumerate(val_loader):
     input_var = torch.autograd.Variable(input, volatile=True)
     target_var = torch.autograd.Variable(target, volatile=True)
     output = model(input_var)
+
+# ################# section 4 ##########################
+
+lizard = Image.open('lizard_wet_task1_section3.jpg')
+
+# transformation operators
+rotate = transforms.RandomRotation(90, resample=Image.BICUBIC)  # geometric transformation
+colors = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)
+gaussian = cv2.getGaussianKernel(9, -1)
+
+
+# applying transformation to lizard image
+rotate_lizard = rotate(lizard)
+colored_lizard = colors(lizard)
+blurred_lizard = cv2.filter2D(np.array(lizard), -1, gaussian)
+# blurred_lizard = cv2.GaussianBlur(lizard, 9, 3)
+
+plt.figure(figsize=(15, 15)), plt.tight_layout()
+plt.subplot(141), plt.imshow(lizard), plt.title('Lizard'), plt.xticks([]), plt.yticks([])
+plt.subplot(142), plt.imshow(rotate_lizard), plt.title('Rotated Lizard'), plt.xticks([]), plt.yticks([])
+plt.subplot(143), plt.imshow(colored_lizard), plt.title('Jitter Colored Lizard'), plt.xticks([]), plt.yticks([])
+plt.subplot(144), plt.imshow(blurred_lizard), plt.title('Gaussian Blurred Lizard'), plt.xticks([]), plt.yticks([])
+# plt.suptitle('Lizard transformation', fontsize=40)
+plt.show()
