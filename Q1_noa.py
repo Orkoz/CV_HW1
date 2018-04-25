@@ -57,7 +57,7 @@ def classify_vgg16(folder, label):
 
     # create the pretrained nn
     net = models.vgg16(pretrained=True)
-
+    net.eval()
     data_loader, label_idx = load_data(folder, label)
 
     # iterate over the input images and display them with the classification vgg16 gave them
@@ -87,6 +87,34 @@ def transform_image_to_fit_vgg(im):
     compose = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), normalize])
     return unloader(compose(im))
 
+def get_features_vector(model, modules_key, layer_idx, image):
+    """
+    This func. returns the output features vector of the specified layer for the input image
+    :param model: the pretrained net
+    :param modules_key: 'features' or 'classifier'
+    :param layer_idx: index of the layer within modules_key
+    :param image: the image to extract net features on
+    :return: the features vector
+    """
+    # Use the model object to select the desired layer
+    layer = model._modules.get('classifier').__getitem__(layer_idx)
+    # Create a vector of zeros that will hold our feature vector
+    num_out_features = int(str(layer).split("out_features=")[1].split(",")[0])
+    my_embedding = torch.zeros(num_out_features)
+
+    # Define a function that will copy the output of a layer
+    def copy_data(m, i, o):
+        my_embedding.copy_(o.data)
+
+    # Attach that function to our selected layer
+    h = layer.register_forward_hook(copy_data)
+    # Run the model on our transformed image
+    model(image)
+    # Detach our copy function from the layer
+    h.remove()
+    # Return the feature vector
+    return my_embedding
+
 def section2():
     birds = [Image.open('birds/bird_0.jpg'), Image.open('birds/bird_1.jpg')]
     plt.figure(figsize=(15, 15)), plt.tight_layout()
@@ -112,6 +140,7 @@ def section4():
     rotate_lizard = rotate(lizard)
     colored_lizard = colors(lizard)
     blurred_lizard = cv2.filter2D(np.array(lizard), -1, gaussian)
+    blurred_lizard_PIL = Image.fromarray(blurred_lizard)
 
     # saving transformed images to new folder
     my_path = os.path.join(os.getcwd(), 'transformed_imgs')
@@ -119,7 +148,7 @@ def section4():
         os.makedirs(my_path)
     rotate_lizard.save('transformed_imgs/rotate_lizard.jpg')
     colored_lizard.save('transformed_imgs/colored_lizard.jpg')
-    blurred_lizard.save('transformed_imgs/blurred_lizard.jpg')
+    blurred_lizard_PIL.save('transformed_imgs/blurred_lizard.jpg')
 
     # displaying the image and the transforms
     plt.figure(figsize=(15, 15)), plt.tight_layout()
@@ -127,7 +156,7 @@ def section4():
     plt.subplot(142), plt.imshow(rotate_lizard), plt.title('Rotated Lizard'), plt.xticks([]), plt.yticks([])
     plt.subplot(143), plt.imshow(colored_lizard), plt.title('Jitter Colored Lizard'), plt.xticks([]), plt.yticks([])
     plt.subplot(144), plt.imshow(blurred_lizard), plt.title('Gaussian Blurred Lizard'), plt.xticks([]), plt.yticks([])
-    plt.show()
+    plt.show(block=False)
 
 def main():
     # Q1.2
