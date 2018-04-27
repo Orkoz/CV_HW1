@@ -282,13 +282,14 @@ def section6(net):
     return fc7_vecs, reduced_features, tags
 
 
-def section7(net, dogs_features_mat, cats_features_mat):
+def section7_8(net, dogs_features_mat, cats_features_mat):
     """
     :param net: the VGG16 network.
     :param dogs_features_mat: the features of the 10 dogs from section 6 (10x4096 ndarray)
     :param cats_features_mat: the features of the 10 cats from section 6 (10x4096 ndarray)
     :return: none
     """
+    ################### section 7 #######################3
     # load and display the image from the internet
     dog_and_cat = [Image.open('cat_10.jpg'), Image.open('dog_10.jpg')]
 
@@ -320,6 +321,12 @@ def section7(net, dogs_features_mat, cats_features_mat):
     plt.suptitle('Original Birds Images')
     plt.show(block=False)
 
+    ################### section 8 #######################3
+    wolf  = Image.open('wolf.jpg')
+    tiger = Image.open('tiger.jpg')
+
+def get_nearest_image_from_dataset(src_image):
+    
 
 def find_nearest_neighbor(src_mat, ref_vac):
     """
@@ -356,9 +363,9 @@ def main():
     # Q1.6
     # Q1.6
     fc7_vecs, reduced_features, tags = section6(net)
-    # Q1.7
+    # Q1.7 & 8
     fc7_mat = np.asarray(fc7_vecs)
-    section7(net, fc7_mat[:11], fc7_mat[10:])
+    section7_8(net, fc7_mat[:11], fc7_mat[10:])
 
     # vec = get_features_vector(net, 'classifier', 3, image)
     # print(vec)
