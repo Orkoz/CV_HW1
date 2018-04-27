@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image
 import torch.optim
 import cv2
+from scipy.spatial import distance
 
 ###############
 ###Functions###
@@ -89,26 +90,20 @@ def transform_image_to_fit_vgg(im):
     # to_tensor = transforms.ToTensor()
     # return torch.autograd.Variable(normalize(to_tensor(scaler(im))).unsqueeze(0))
 
-def get_features_vector(model, modules_key, layer_idx, image):
+def get_features_vector(model, modules_key, layer_idx, image, out_features_size):
     """
     This func. returns the output features vector of the specified layer for the input image
     :param model: the pretrained net
     :param modules_key: 'features' or 'classifier'
     :param layer_idx: index of the layer within modules_key
-    :param image: the image to extract net features on
+    :param image: the image to extract net features on (already in torch.autograd.Variable form, which is what
+     the nn expects)
     :return: the features vector
     """
-    # Create a PyTorch Variable with the transformed image
-    scaler = transforms.Resize((224, 224))
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-    to_tensor = transforms.ToTensor()
-    im = torch.autograd.Variable(normalize(to_tensor(scaler(image))).unsqueeze(0))
     # Use the model object to select the desired layer
     layer = model._modules.get(modules_key).__getitem__(layer_idx)
     # Create a vector of zeros that will hold our feature vector
-    num_out_features = int(str(layer).split("out_features=")[1].split(",")[0])
-    my_embedding = torch.zeros(num_out_features)
+    my_embedding = torch.zeros(out_features_size)
 
     # Define a function that will copy the output of a layer
     def copy_data(m, i, o):
@@ -117,7 +112,7 @@ def get_features_vector(model, modules_key, layer_idx, image):
     # Attach that function to our selected layer
     h = layer.register_forward_hook(copy_data)
     # Run the model on our transformed image
-    model(im)
+    model(image)
     # Detach our copy function from the layer
     h.remove()
     # Return the feature vector
@@ -166,15 +161,47 @@ def section4():
     plt.subplot(144), plt.imshow(blurred_lizard), plt.title('Gaussian Blurred Lizard'), plt.xticks([]), plt.yticks([])
     plt.show(block=False)
 
-
-def section5():
+def section5(net):
+    # extract the first layer from the net and the two first filers kernels
     filter_layer1 = net.features[0].weight.data
     first_kernel= filter_layer1[0]
     second_kernel = filter_layer1[1]
+
+    # display the image
     plt.figure(figsize=(15, 15)), plt.tight_layout()
     plt.subplot(121), plt.imshow(get_kernels_disply(first_kernel)), plt.title('First Filter'), plt.xticks([]), plt.yticks([])
     plt.subplot(122), plt.imshow(get_kernels_disply(second_kernel)), plt.title('Rotated Lizard'), plt.xticks([]), plt.yticks([])
-    plt.suptitle('First Layer Filter & Response', fontsize=40)
+    plt.suptitle('First Layer Filter', fontsize=40)
+    plt.show(block=False)
+
+    # going trough all images, identifying the images we want and analyzing them
+    plt.figure(figsize=(15, 15))
+    data_loader, label_idx = load_data(os.getcwd(), 'transformed_imgs')
+    j = 1
+    # iterate over the transformed lizards images and extract the FC7 features vector
+    for i, (inputs, labels) in enumerate(data_loader):
+        # running the inout image through the network
+        input_var = torch.autograd.Variable(inputs, volatile=True)
+        label_var = torch.autograd.Variable(labels, volatile=True)
+        if int(label_var) is not label_idx:
+            continue
+
+        # get the response feature vector of layer 1 to the input image and from that vector take the response of the
+        #  first and the second filter
+        layer1_response = get_features_vector(net, 'features', 0, input_var, ([1, 64, 224, 224]))
+        layer1_response = torch.autograd.Variable(layer1_response[0]).data.cpu().numpy()  # casting the FloatTensor to numpy for displaying the images
+        first_response = layer1_response[0]
+        second_response = layer1_response[1]
+
+        # display the responses
+        plt.subplot(3, 2, j), plt.imshow(first_response, cmap='gray'), plt.title('First Filter Response'), plt.xticks(
+            []), plt.yticks([])
+        j = j + 1
+        plt.subplot(3, 2, j), plt.imshow(second_response, cmap='gray'), plt.title('Second Filter Response'), plt.xticks(
+            []), plt.yticks([])
+        j = j+1
+
+    plt.suptitle('First Layer Response', fontsize=40)
     plt.show(block=False)
 
 def get_kernels_disply(kernel):
@@ -186,13 +213,42 @@ def get_kernels_disply(kernel):
     kernel = ((kernel - kernel.min())*255)/(kernel.max()-kernel.min())
     return kernel.astype(np.uint8)
 
+def section7(net, dogs_features_mat, cats_features_mat):
+    dog_and_cat = [Image.open('cats/cat_10.jpg'), Image.open('dogs/dog_10.jpg')]
 
+    plt.figure(figsize=(15, 15)), plt.tight_layout()
+    plt.subplot(221), plt.imshow(dog_and_cat[0]), plt.title('Cat'), plt.xticks([]), plt.yticks([])
+    plt.subplot(222), plt.imshow(dog_and_cat[1]), plt.title('Dog'), plt.xticks([]), plt.yticks([])
+
+    vgg_cat = transform_image_to_fit_vgg(dog_and_cat[0])
+    vgg_dog = transform_image_to_fit_vgg(dog_and_cat[1])
+
+    features_cat = torch.autograd.Variable(get_features_vector(net, 'classification', 3, dog_and_cat[0], ([4096]))).data.cpu().numpy()
+    features_dog = torch.autograd.Variable(get_features_vector(net, 'classification', 3, dog_and_cat[1], ([4096]))).data.cpu().numpy()
+
+    nearest_cat = find_nearest_neighbor(cats_features_mat,features_cat)
+    nearest_dog = find_nearest_neighbor(dogs_features_mat,features_dog)
+
+    nearest_dog_and_cat = [Image.open('cats/cat_' + str(nearest_cat) + '.jpg'), Image.open('dogs/dog_' + str(nearest_dog) + '.jpg')]
+
+    plt.subplot(223), plt.imshow(nearest_dog_and_cat[0]), plt.title('Cat'), plt.xticks([]), plt.yticks([])
+    plt.subplot(224), plt.imshow(nearest_dog_and_cat[1]), plt.title('Dog'), plt.xticks([]), plt.yticks([])
+    plt.suptitle('Original Birds Images', fontsize=40)
+    plt.show(block=False)
+
+def find_nearest_neighbor(src_mat, ref_vac):
+    norm = [(distance.euclidean(x,ref_vac) for x in src_mat]
+    return norm.argmax()
 
 def main():
     # create the pretrained nn
     net = models.vgg16(pretrained=True)
     net.eval()
-
+    #
+    # # create the pretrained nn
+    # net = models.vgg16(pretrained=True)
+    # net.eval()
+    #
     # # Q1.2
     # section2()
     # classify_vgg16(os.getcwd(), 'birds')
@@ -200,14 +256,18 @@ def main():
     # classify_vgg16(os.getcwd(), 'lizards')
     # # Q1.4
     # section4()
+    # classify_vgg16(os.getcwd(), 'transformed_imgs')
     #Q1.5
-    section5()
+    # section5(net)
     # classify_vgg16(os.getcwd(), 'transformed_imgs')
     # Q1.6
 
+    # Q1.7
+    section7()
 
-    vec = get_features_vector(net, 'classifier', 3, image)
-    print(vec)
+
+    # vec = get_features_vector(net, 'classifier', 3, image)
+    # print(vec)
 
 if __name__ == '__main__':
     main()
