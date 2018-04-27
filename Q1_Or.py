@@ -183,9 +183,9 @@ def section5(net):
 
     # display the image
     plt.figure(figsize=(15, 15)), plt.tight_layout()
-    plt.subplot(121), plt.imshow(get_kernels_disply(first_kernel)), plt.title('First Filter'), plt.xticks(
+    plt.subplot(121), plt.imshow(get_kernels_display(first_kernel)), plt.title('First Filter'), plt.xticks(
         []), plt.yticks([])
-    plt.subplot(122), plt.imshow(get_kernels_disply(second_kernel)), plt.title('Rotated Lizard'), plt.xticks(
+    plt.subplot(122), plt.imshow(get_kernels_display(second_kernel)), plt.title('Rotated Lizard'), plt.xticks(
         []), plt.yticks([])
     plt.suptitle('First Layer Filter', fontsize=40)
     plt.show(block=False)
@@ -222,7 +222,7 @@ def section5(net):
     plt.show(block=False)
 
 
-def get_kernels_disply(kernel):
+def get_kernels_display(kernel):
     """
     :param kernel: the kernel to get ready for display (a FloatTensor)
     :return: uint8 numpy.array in range [0 255]
@@ -282,13 +282,14 @@ def section6(net):
     return fc7_vecs, reduced_features, tags
 
 
-def section7(net, dogs_features_mat, cats_features_mat):
+def section7_8(net, features_mat):
     """
     :param net: the VGG16 network.
     :param dogs_features_mat: the features of the 10 dogs from section 6 (10x4096 ndarray)
     :param cats_features_mat: the features of the 10 cats from section 6 (10x4096 ndarray)
     :return: none
     """
+    ################### section 7 #######################3
     # load and display the image from the internet
     dog_and_cat = [Image.open('cat_10.jpg'), Image.open('dog_10.jpg')]
 
@@ -296,19 +297,9 @@ def section7(net, dogs_features_mat, cats_features_mat):
     plt.subplot(221), plt.imshow(dog_and_cat[0]), plt.title('Internet Cat'), plt.xticks([]), plt.yticks([])
     plt.subplot(222), plt.imshow(dog_and_cat[1]), plt.title('Internet Dog'), plt.xticks([]), plt.yticks([])
 
-    # modify the internet images to fit the input format of the VGG net.
-    vgg_cat = transform_image_to_fit_vgg(dog_and_cat[0])
-    vgg_dog = transform_image_to_fit_vgg(dog_and_cat[1])
-
-    # insert the images to the net and extract the second fully connected layer (while converting the result to ndarray)
-    features_cat = torch.autograd.Variable(
-        get_features_vector(net, 'classifier', 3, vgg_cat, ([4096]))).data.cpu().numpy()
-    features_dog = torch.autograd.Variable(
-        get_features_vector(net, 'classifier', 3, vgg_dog, ([4096]))).data.cpu().numpy()
-
     # finding the nearest image from the evaluation set (represented as a row index from the feature matrix)
-    nearest_cat = find_nearest_neighbor(cats_features_mat, features_cat)
-    nearest_dog = find_nearest_neighbor(dogs_features_mat, features_dog)
+    nearest_cat = get_nearest_image_from_dataset(net, features_mat, dog_and_cat[0])
+    nearest_dog = get_nearest_image_from_dataset(net, features_mat, dog_and_cat[0])
 
     nearest_dog_and_cat = [Image.open('cats/cat_' + str(nearest_cat) + '.jpg'),
                            Image.open('dogs/dog_' + str(nearest_dog) + '.jpg')]
@@ -317,8 +308,42 @@ def section7(net, dogs_features_mat, cats_features_mat):
         'nearest Cat image from the evaluation set'), plt.xticks([]), plt.yticks([])
     plt.subplot(224), plt.imshow(nearest_dog_and_cat[1]), plt.title(
         'nearest DOG image from the evaluation set'), plt.xticks([]), plt.yticks([])
-    plt.suptitle('Original Birds Images')
+    plt.suptitle('Images Nearest Neighbor')
     plt.show(block=False)
+
+    ################### section 8 #######################3
+    wolf = Image.open('wolf.jpg')
+    tiger = Image.open('tiger.jpg')
+
+    plt.figure(figsize=(10, 10)), plt.tight_layout()
+    plt.subplot(221), plt.imshow(tiger), plt.title('Internet Wolf'), plt.xticks([]), plt.yticks([])
+    plt.subplot(222), plt.imshow(wolf), plt.title('Internet Tiger'), plt.xticks([]), plt.yticks([])
+
+    # finding the nearest image from the evaluation set (represented as a row index from the feature matrix)
+    nearest_cat = get_nearest_image_from_dataset(net, features_mat, tiger)
+    nearest_dog = get_nearest_image_from_dataset(net, features_mat, wolf)
+
+    nearest_dog_and_cat = [Image.open('cats/cat_' + str(nearest_cat) + '.jpg'),
+                           Image.open('dogs/dog_' + str(nearest_dog) + '.jpg')]
+
+    plt.subplot(223), plt.imshow(nearest_dog_and_cat[0]), plt.title(
+        'nearest Cat image from the evaluation set'), plt.xticks([]), plt.yticks([])
+    plt.subplot(224), plt.imshow(nearest_dog_and_cat[1]), plt.title(
+        'nearest DOG image from the evaluation set'), plt.xticks([]), plt.yticks([])
+    plt.suptitle('Images Nearest Neighbor')
+    plt.show(block=False)
+
+
+def get_nearest_image_from_dataset(net, features_mat, src_image):
+    # modify the internet images to fit the input format of the VGG net.
+    vgg_image = transform_image_to_fit_vgg(src_image)
+
+    # insert the images to the net and extract the second fully connected layer (while converting the result to ndarray)
+    image_features = torch.autograd.Variable(
+        get_features_vector(net, 'classifier', 3, vgg_image, ([4096]))).data.cpu().numpy()
+
+    # finding the nearest image from the evaluation set (represented as a row index from the feature matrix)
+    return find_nearest_neighbor(features_mat, image_features) % 9
 
 
 def find_nearest_neighbor(src_mat, ref_vac):
@@ -329,7 +354,7 @@ def find_nearest_neighbor(src_mat, ref_vac):
     """
     norm = [distance.euclidean(x, ref_vac) for x in
             src_mat]  # calculate the L2 of the ref_vec from each of the vectors in src_mat
-    max_list = min(norm)
+    min_list = min(norm)
     return norm.index(max_list)  # return the index (row number) of the nearest vector
 
 
@@ -356,9 +381,9 @@ def main():
     # Q1.6
     # Q1.6
     fc7_vecs, reduced_features, tags = section6(net)
-    # Q1.7
+    # Q1.7 & 8
     fc7_mat = np.asarray(fc7_vecs)
-    section7(net, fc7_mat[:11], fc7_mat[10:])
+    section7_8(net, fc7_mat)
 
     # vec = get_features_vector(net, 'classifier', 3, image)
     # print(vec)
