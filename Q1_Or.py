@@ -283,36 +283,54 @@ def section6(net):
 
 
 def section7(net, dogs_features_mat, cats_features_mat):
+    """
+    :param net: the VGG16 network.
+    :param dogs_features_mat: the features of the 10 dogs from section 6 (10x4096 ndarray)
+    :param cats_features_mat: the features of the 10 cats from section 6 (10x4096 ndarray)
+    :return: none
+    """
+    # load and display the image from the internet
     dog_and_cat = [Image.open('cat_10.jpg'), Image.open('dog_10.jpg')]
 
-    plt.figure(figsize=(15, 15)), plt.tight_layout()
-    plt.subplot(221), plt.imshow(dog_and_cat[0]), plt.title('Cat'), plt.xticks([]), plt.yticks([])
-    plt.subplot(222), plt.imshow(dog_and_cat[1]), plt.title('Dog'), plt.xticks([]), plt.yticks([])
+    plt.figure(figsize=(10, 10)), plt.tight_layout()
+    plt.subplot(221), plt.imshow(dog_and_cat[0]), plt.title('Internet Cat'), plt.xticks([]), plt.yticks([])
+    plt.subplot(222), plt.imshow(dog_and_cat[1]), plt.title('Internet Dog'), plt.xticks([]), plt.yticks([])
 
+    # modify the internet images to fit the input format of the VGG net.
     vgg_cat = transform_image_to_fit_vgg(dog_and_cat[0])
     vgg_dog = transform_image_to_fit_vgg(dog_and_cat[1])
 
+    # insert the images to the net and extract the second fully connected layer (while converting the result to ndarray)
     features_cat = torch.autograd.Variable(
         get_features_vector(net, 'classifier', 3, vgg_cat, ([4096]))).data.cpu().numpy()
     features_dog = torch.autograd.Variable(
         get_features_vector(net, 'classifier', 3, vgg_dog, ([4096]))).data.cpu().numpy()
 
+    # finding the nearest image from the evaluation set (represented as a row index from the feature matrix)
     nearest_cat = find_nearest_neighbor(cats_features_mat, features_cat)
     nearest_dog = find_nearest_neighbor(dogs_features_mat, features_dog)
 
     nearest_dog_and_cat = [Image.open('cats/cat_' + str(nearest_cat) + '.jpg'),
                            Image.open('dogs/dog_' + str(nearest_dog) + '.jpg')]
 
-    plt.subplot(223), plt.imshow(nearest_dog_and_cat[0]), plt.title('Cat'), plt.xticks([]), plt.yticks([])
-    plt.subplot(224), plt.imshow(nearest_dog_and_cat[1]), plt.title('Dog'), plt.xticks([]), plt.yticks([])
-    plt.suptitle('Original Birds Images', fontsize=40)
+    plt.subplot(223), plt.imshow(nearest_dog_and_cat[0]), plt.title(
+        'nearest Cat image from the evaluation set'), plt.xticks([]), plt.yticks([])
+    plt.subplot(224), plt.imshow(nearest_dog_and_cat[1]), plt.title(
+        'nearest DOG image from the evaluation set'), plt.xticks([]), plt.yticks([])
+    plt.suptitle('Original Birds Images')
     plt.show(block=False)
 
 
 def find_nearest_neighbor(src_mat, ref_vac):
-    norm = [distance.euclidean(x, ref_vac) for x in src_mat]
-    max_list = max(norm)
-    return norm.index(max_list)
+    """
+    :param src_mat: the vector space.
+    :param ref_vac: the reference vectors
+    :return: the index (row number) of the nearest vector to ref_vec from src_mat
+    """
+    norm = [distance.euclidean(x, ref_vac) for x in
+            src_mat]  # calculate the L2 of the ref_vec from each of the vectors in src_mat
+    max_list = min(norm)
+    return norm.index(max_list)  # return the index (row number) of the nearest vector
 
 
 def main():
