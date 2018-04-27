@@ -47,7 +47,7 @@ def load_data(folder, label):
 
     return data_loader, label_idx
 
-def classify_vgg16(folder, label):
+def classify_vgg16(net, folder, label):
     # Create a dictionary with all the posibble classifications
     classes_dict = dict()  # prepare dictionary
     with open("classes.txt", "r") as f:
@@ -55,9 +55,6 @@ def classify_vgg16(folder, label):
             (key, val) = line.strip().split(':')
             classes_dict[key] = val
 
-    # create the pretrained nn
-    net = models.vgg16(pretrained=True)
-    net.eval()
     data_loader, label_idx = load_data(folder, label)
 
     # iterate over the input images and display them with the classification vgg16 gave them
@@ -86,6 +83,11 @@ def transform_image_to_fit_vgg(im):
     unloader = transforms.ToPILImage()
     compose = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), normalize])
     return unloader(compose(im))
+    # scaler = transforms.Resize((224, 224))
+    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                                  std=[0.229, 0.224, 0.225])
+    # to_tensor = transforms.ToTensor()
+    # return torch.autograd.Variable(normalize(to_tensor(scaler(im))).unsqueeze(0))
 
 def get_features_vector(model, modules_key, layer_idx, image):
     """
@@ -96,8 +98,14 @@ def get_features_vector(model, modules_key, layer_idx, image):
     :param image: the image to extract net features on
     :return: the features vector
     """
+    # Create a PyTorch Variable with the transformed image
+    scaler = transforms.Resize((224, 224))
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    to_tensor = transforms.ToTensor()
+    im = torch.autograd.Variable(normalize(to_tensor(scaler(image))).unsqueeze(0))
     # Use the model object to select the desired layer
-    layer = model._modules.get('classifier').__getitem__(layer_idx)
+    layer = model._modules.get(modules_key).__getitem__(layer_idx)
     # Create a vector of zeros that will hold our feature vector
     num_out_features = int(str(layer).split("out_features=")[1].split(",")[0])
     my_embedding = torch.zeros(num_out_features)
@@ -109,7 +117,7 @@ def get_features_vector(model, modules_key, layer_idx, image):
     # Attach that function to our selected layer
     h = layer.register_forward_hook(copy_data)
     # Run the model on our transformed image
-    model(image)
+    model(im)
     # Detach our copy function from the layer
     h.remove()
     # Return the feature vector
@@ -121,12 +129,12 @@ def section2():
     plt.subplot(121), plt.imshow(birds[0]), plt.title('bird #0'), plt.xticks([]), plt.yticks([])
     plt.subplot(122), plt.imshow(birds[1]), plt.title('bird #1'), plt.xticks([]), plt.yticks([])
     plt.suptitle('Original Birds Images', fontsize=40)
-    plt.show()
+    plt.show(block=False)
     plt.figure(figsize=(15, 15)), plt.tight_layout()
     plt.subplot(121), plt.imshow(transform_image_to_fit_vgg(birds[0])), plt.title('bird #0'), plt.xticks([]), plt.yticks([])
     plt.subplot(122), plt.imshow(transform_image_to_fit_vgg(birds[1])), plt.title('bird #1'), plt.xticks([]), plt.yticks([])
     plt.suptitle('Normalized and Resized Birds Images', fontsize=40)
-    plt.show()
+    plt.show(block=False)
 
 def section4():
     lizard = Image.open('lizards/lizard.jpg')
@@ -159,14 +167,23 @@ def section4():
     plt.show(block=False)
 
 def main():
-    # Q1.2
+    # create the pretrained nn
+    net = models.vgg16(pretrained=True)
+    net.eval()
+
+    # # Q1.2
     # section2()
     # classify_vgg16(os.getcwd(), 'birds')
-    # # Q1.3
+    # # # Q1.3
     # classify_vgg16(os.getcwd(), 'lizards')
-    # Q1.4
-    section4()
-    classify_vgg16(os.getcwd(), 'transformed_imgs')
+    # # Q1.4
+    # section4()
+    # classify_vgg16(os.getcwd(), 'transformed_imgs')
+    # Q1.6
+
+
+    vec = get_features_vector(net, 'classifier', 3, image)
+    print(vec)
 
 if __name__ == '__main__':
     main()
