@@ -282,7 +282,7 @@ def section6(net):
     return fc7_vecs, reduced_features, tags
 
 
-def section7_8(net, dogs_features_mat, cats_features_mat):
+def section7_8(net, features_mat):
     """
     :param net: the VGG16 network.
     :param dogs_features_mat: the features of the 10 dogs from section 6 (10x4096 ndarray)
@@ -298,8 +298,8 @@ def section7_8(net, dogs_features_mat, cats_features_mat):
     plt.subplot(222), plt.imshow(dog_and_cat[1]), plt.title('Internet Dog'), plt.xticks([]), plt.yticks([])
 
     # finding the nearest image from the evaluation set (represented as a row index from the feature matrix)
-    nearest_cat = get_nearest_image_from_dataset(net, cats_features_mat ,dog_and_cat[0])
-    nearest_dog = get_nearest_image_from_dataset(net, dogs_features_mat ,dog_and_cat[0])
+    nearest_cat = get_nearest_image_from_dataset(net, features_mat, dog_and_cat[0])
+    nearest_dog = get_nearest_image_from_dataset(net, features_mat, dog_and_cat[0])
 
     nearest_dog_and_cat = [Image.open('cats/cat_' + str(nearest_cat) + '.jpg'),
                            Image.open('dogs/dog_' + str(nearest_dog) + '.jpg')]
@@ -320,8 +320,8 @@ def section7_8(net, dogs_features_mat, cats_features_mat):
     plt.subplot(222), plt.imshow(wolf), plt.title('Internet Tiger'), plt.xticks([]), plt.yticks([])
 
     # finding the nearest image from the evaluation set (represented as a row index from the feature matrix)
-    nearest_cat = get_nearest_image_from_dataset(net, cats_features_mat, tiger)
-    nearest_dog = get_nearest_image_from_dataset(net, dogs_features_mat, wolf)
+    nearest_cat = get_nearest_image_from_dataset(net, features_mat, tiger)
+    nearest_dog = get_nearest_image_from_dataset(net, features_mat, wolf)
 
     nearest_dog_and_cat = [Image.open('cats/cat_' + str(nearest_cat) + '.jpg'),
                            Image.open('dogs/dog_' + str(nearest_dog) + '.jpg')]
@@ -343,7 +343,8 @@ def get_nearest_image_from_dataset(net, features_mat, src_image):
         get_features_vector(net, 'classifier', 3, vgg_image, ([4096]))).data.cpu().numpy()
 
     # finding the nearest image from the evaluation set (represented as a row index from the feature matrix)
-    return find_nearest_neighbor(features_mat, image_features)
+    return find_nearest_neighbor(features_mat, image_features) % 9
+
 
 def find_nearest_neighbor(src_mat, ref_vac):
     """
@@ -353,7 +354,7 @@ def find_nearest_neighbor(src_mat, ref_vac):
     """
     norm = [distance.euclidean(x, ref_vac) for x in
             src_mat]  # calculate the L2 of the ref_vec from each of the vectors in src_mat
-    max_list = min(norm)
+    min_list = min(norm)
     return norm.index(max_list)  # return the index (row number) of the nearest vector
 
 
@@ -382,7 +383,7 @@ def main():
     fc7_vecs, reduced_features, tags = section6(net)
     # Q1.7 & 8
     fc7_mat = np.asarray(fc7_vecs)
-    section7_8(net, fc7_mat[:11], fc7_mat[10:])
+    section7_8(net, fc7_mat)
 
     # vec = get_features_vector(net, 'classifier', 3, image)
     # print(vec)
