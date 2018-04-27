@@ -1,4 +1,5 @@
 # importing libraries
+import copy
 import os
 from matplotlib import pyplot as plt
 import torch
@@ -11,6 +12,7 @@ import numpy as np
 from PIL import Image
 import torch.optim
 import cv2
+from sklearn.decomposition import PCA
 
 ###############
 ###Functions###
@@ -89,7 +91,7 @@ def transform_image_to_fit_vgg(im):
     # to_tensor = transforms.ToTensor()
     # return torch.autograd.Variable(normalize(to_tensor(scaler(im))).unsqueeze(0))
 
-def get_features_vector(model, modules_key, layer_idx, image):
+def get_features_vector(model, modules_key, layer_idx, image, out_features_size):
     """
     This func. returns the output features vector of the specified layer for the input image
     :param model: the pretrained net
@@ -97,17 +99,17 @@ def get_features_vector(model, modules_key, layer_idx, image):
     :param layer_idx: index of the layer within modules_key
     :param image: the image to extract net features on (already in torch.autograd.Variable form, which is what
      the nn expects)
+    :param out_features_size: tuple, the size of the features the layer outputs
     :return: the features vector
     """
     # Use the model object to select the desired layer
     layer = model._modules.get(modules_key).__getitem__(layer_idx)
     # Create a vector of zeros that will hold our feature vector
-    num_out_features = int(str(layer).split("out_features=")[1].split(",")[0])
-    my_embedding = torch.zeros(num_out_features)
+    my_embedding = torch.zeros(out_features_size)
 
     # Define a function that will copy the output of a layer
     def copy_data(m, i, o):
-        my_embedding.copy_(o.data)
+        my_embedding.copy_(o.data.view_as(my_embedding))
 
     # Attach that function to our selected layer
     h = layer.register_forward_hook(copy_data)
@@ -161,50 +163,72 @@ def section4():
     plt.subplot(144), plt.imshow(blurred_lizard), plt.title('Gaussian Blurred Lizard'), plt.xticks([]), plt.yticks([])
     plt.show(block=False)
 
+def section6(net):
+    """
+
+    :param net: the nn
+    :return:
+        fc7_vecs (20x4096 matrix, each line is a features vector of a different image)
+        reduced_features (20x2 matrix, each line is the 2 primary pca components of the features vector)
+        tags (vector containing tags of the images, 0 for cat, 1 for dog)
+    """
+    fc7_vecs = []
+
+    # iterate over the cats images and extract the FC7 features vector
+    data_loader, label_idx = load_data(os.getcwd(), 'cats')
+    for i, (inputs, labels) in enumerate(data_loader):
+        # running the inout image through the network
+        input_var = torch.autograd.Variable(inputs, volatile=True)
+        label_var = torch.autograd.Variable(labels, volatile=True)
+        if int(label_var) is not label_idx:
+            continue
+        features = torch.autograd.Variable(get_features_vector(net, 'classifier', 3, input_var,
+                                                               ([4096]))).data.cpu().numpy()
+        fc7_vecs.append(features)
+
+    # iterate over the dogs images and extract the FC7 features vector
+    data_loader, label_idx = load_data(os.getcwd(), 'dogs')
+    for i, (inputs, labels) in enumerate(data_loader):
+        # running the inout image through the network
+        input_var = torch.autograd.Variable(inputs, volatile=True)
+        label_var = torch.autograd.Variable(labels, volatile=True)
+        if int(label_var) is not label_idx:
+            continue
+        features = torch.autograd.Variable(get_features_vector(net, 'classifier', 3, input_var,
+                                                               ([4096]))).data.cpu().numpy()
+        fc7_vecs.append(features)
+    # getting 2 components using PCA
+    tags = np.zeros(20)
+    tags[10:19] = 1
+    reduced_features = PCA(n_components=2).fit(fc7_vecs, tags).transform(fc7_vecs)
+
+    # displaying the components for cats and dogs
+    figure = plt.figure()
+    plt.title('FC7 Feature Vec. of Cats and Dogs')
+    plt.scatter(reduced_features[tags == 0, 0], reduced_features[tags == 0, 1], marker=".", c="r", label='cats')
+    plt.scatter(reduced_features[tags == 1, 0], reduced_features[tags == 1, 1], marker=".", c="b", label='dogs')
+    figure.legend()
+    plt.show()
+
+    return fc7_vecs, reduced_features, tags
+
+
 def main():
     # create the pretrained nn
     net = models.vgg16(pretrained=True)
     net.eval()
 
     # Q1.2
-    section2()
-    classify_vgg16(os.getcwd(), 'birds')
-    # # Q1.3
-    classify_vgg16(os.getcwd(), 'lizards')
-    # Q1.4
-    section4()
-    classify_vgg16(os.getcwd(), 'transformed_imgs')
+    # section2()
+    # classify_vgg16(os.getcwd(), 'birds')
+    # # # Q1.3
+    # classify_vgg16(os.getcwd(), 'lizards')
+    # # Q1.4
+    # section4()
+    # classify_vgg16(os.getcwd(), 'transformed_imgs')
     # Q1.6
-    fc7_vecs = []
-    data_loader, label_idx = load_data(os.getcwd(), 'cats')
-    # iterate over the cats images and extract the FC7 features vector
-    for i, (inputs, labels) in enumerate(data_loader):
-        # running the inout image through the network
-        input_var = torch.autograd.Variable(inputs, volatile=True)
-        label_var = torch.autograd.Variable(labels, volatile=True)
-        if int(label_var) is not label_idx:
-            continue
-        fc7_vecs.append(get_features_vector(net, 'classifier', 3, input_var))
-    data_loader, label_idx = load_data(os.getcwd(), 'dogs')
-    # iterate over the dogs images and extract the FC7 features vector
-    for i, (inputs, labels) in enumerate(data_loader):
-        # running the inout image through the network
-        input_var = torch.autograd.Variable(inputs, volatile=True)
-        label_var = torch.autograd.Variable(labels, volatile=True)
-        if int(label_var) is not label_idx:
-            continue
-        fc7_vecs.append(get_features_vector(net, 'classifier', 3, input_var))
+    section6(net)
 
-    plt.figure()
-    for vec in fc7_vecs:
-        plt.plot(torch.autograd.Variable(vec).data.cpu().numpy())
-    plt.show()
-
-
-
-    # image = transform_image_to_fit_vgg(Image.open('birds/bird_0.jpg'))
-    # vec = get_features_vector(net, 'classifier', 3, image)
-    # print(vec)
 
 if __name__ == '__main__':
     main()
