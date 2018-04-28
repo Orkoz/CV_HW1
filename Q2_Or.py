@@ -29,31 +29,42 @@ def sectionA():
     canny__th = [50, 100, 150]
     laplace_th = [50, 100, 150]
 
+
     th = [canny__th, laplace_th, sobel__th]
     parms = [canny_thresholds, laplace_parms, sobel_ksize]
     opertors = ['canny', 'gaussian laplace', 'sobel']
 
     for image in images:
         for j in range(0, 3):
-            plt.figure(figsize=(15, 15)), plt.tight_layout()
-            plt.subplot(5, 3, 2), plt.imshow(image, cmap='gray')
-            plt.title('original image'), plt.xticks([]), plt.yticks([])
-            for i in range(0, 3):
-                im = apply_filter(image, opertors[j], [parms[j][i], parms[j][i+1]], True)
-                plt.subplot(5, 3, i+4), plt.imshow(im, cmap='gray')
-                plt.title('Kernel size = ' + str(parms[j][i]) + ' Threshold = adaptive'), plt.xticks([]), plt.yticks([])
-                for z in range(0, 3):
-                    im = apply_filter(image, opertors[j], [parms[j][i], th[j][z]])
-                    plt.subplot(5, 3, i + 7 + z*3), plt.imshow(im, cmap='gray')
-                    plt.title('Kernel size = ' + str(parms[j][i]) + ' Threshold = ' + str(th[j][z])), plt.xticks([]), plt.yticks([])
-            plt.suptitle(opertors[j], fontsize=30)
-            plt.show()
+                plt.figure(figsize=(15, 15)), plt.tight_layout()
+                plt.subplot(5, 3, 2), plt.imshow(image, cmap='gray')
+                plt.title('original image'), plt.xticks([]), plt.yticks([])
+                for i in range(0, 3):
+                    im = apply_filter(image, opertors[j], [parms[j][i], 1], True)
+                    plt.subplot(5, 3, i+4), plt.imshow(im, cmap='gray')
+                    if opertors[j] == 'canny':
+                        plt.title('min Threshold = ' + str(parms[j][i]) + ' max Threshold = ' + str(1)), plt.xticks([]), plt.yticks([])
+                    else:
+                        plt.title('Kernel size = ' + str(parms[j][i]) + ' Threshold = adaptive'), plt.xticks([]), plt.yticks([])
+                    for z in range(0, 3):
+                        im = apply_filter(image, opertors[j], [parms[j][i], th[j][z]])
+                        plt.subplot(5, 3, i + 7 + z*3), plt.imshow(im, cmap='gray')
+                        if opertors[j] == 'canny':
+                            plt.title('min Threshold = ' + str(parms[j][i]) + ' max Threshold = ' +  str(th[j][z])), plt.xticks([]), plt.yticks([])
+                        else:
+                            plt.title('Kernel size = ' + str(parms[j][i]) + ' Threshold = ' + str(th[j][z])), plt.xticks([]), plt.yticks([])
+
+                plt.suptitle(opertors[j], fontsize=30)
+                plt.show()
 
 
 def apply_filter(image, filter, parms, adaptive=False):
+
+    canny_gap = 75
+
     if filter == 'canny':
-        # return feature.canny(image, parms[2], parms[0], parms[1])
-        return cv2.Canny(image, parms[0], parms[1])
+        # return feature.canny(image, parms[1], parms[0], parms[0]+canny_gap)
+        return cv2.Canny(image, parms[0], parms[0]+canny_gap)
     elif filter == 'gaussian laplace':
         image_edges = filters.gaussian_laplace(image, parms[0])
         if adaptive:
