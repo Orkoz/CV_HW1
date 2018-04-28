@@ -14,46 +14,56 @@ import cv2
 from sklearn.decomposition import PCA
 from skimage import feature
 from scipy.ndimage import filters
+import imageio
+
 
 
 def sectionA():
-    image1 = Image.open('cat_10.jpg')
-    image2 = Image.open('wolf.jpg')
-    image3 = Image.open('tiger.jpg')
+    images = [imageio.imread('edges_images_GT/Church.jpg'), imageio.imread('edges_images_GT/Golf.jpg'), imageio.imread('edges_images_GT/Nuns.jpg')]
 
-    sobel_ksize = [3, 5, 7]
+    sobel_ksize = [1, 3, 5, 0]
     canny_thresholds = [50, 100, 150, 200]
-    laplace_parms = [1, 3, 5]
+    laplace_parms = [1, 3, 5, 0]
 
+    parms = [canny_thresholds, laplace_parms, sobel_ksize]
     opertors = ['canny', 'gaussian laplace', 'sobel']
 
-    for j in range(0, 4):
-        plt.figure(figsize=(10, 10)), plt.tight_layout()
-        for j in range(0, 4):
-            plt.subplot(131), plt.imshow(apply_filter(image1,opertors[i],[]), plt.title('Internet Cat'), plt.xticks([]), plt.yticks([])
-            plt.subplot(132), plt.imshow(dog_and_cat[1]), plt.title('Internet Dog'), plt.xticks([]), plt.yticks([])
-        plt.suptitle(opertors[i])
+    for image in images:
+        for j in range(0, 3):
+            plt.figure(), plt.tight_layout()
+            plt.subplot(2, 3, 2), plt.imshow(image, cmap='gray')
+            plt.title('original image'), plt.xticks([]), plt.yticks([])
+            for i in range(0, 3):
+                im = apply_filter(image, opertors[j], [parms[j][i], parms[j][i+1]], True)
+                plt.subplot(2, 3, i+4), plt.imshow(im, cmap='gray')
+                plt.title(opertors[j]+' with '+str(parms[j][i])), plt.xticks([]), plt.yticks([])
+            plt.suptitle(opertors[j], fontsize=20)
+            plt.show()
 
 
 def apply_filter(image, filter, parms, adaptive=False):
     if filter == 'canny':
-        return cv2.Canny(image, parms[1], parms[2])
+        # return feature.canny(image, parms[2], parms[0], parms[1])
+        return cv2.Canny(image, parms[0], parms[1])
     elif filter == 'gaussian laplace':
-        image_edges = filters.gaussian_laplace(img_gray, ksize=parms[1])
+        image_edges = filters.gaussian_laplace(image, parms[0])
         if adaptive:
-            return cv.adaptiveThreshold(image_edges, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY, 11, 2)
+            return cv2.adaptiveThreshold(image_edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY_INV, 11, 2)
         else:
-            _, th = cv.threshold(image_edges, parms[2], 255, cv.THRESH_BINARY)
+            _, th = cv2.threshold(image_edges, parms[1], 255, cv2.THRESH_BINARY_INV)
             return th
     elif filter == 'sobel':
-        image_edges = cv2.Sobel(img_gray, -1, 1, 1, ksize=parms[1])
+        image_edges = cv2.Sobel(image, -1, 1, 1, ksize=parms[0])
         if adaptive:
-            return cv.adaptiveThreshold(image_edges, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY, 11, 2)
+            return cv2.adaptiveThreshold(image_edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY_INV, 11, 2)
         else:
-            _, th = cv.threshold(image_edges, parms[2], 255, cv.THRESH_BINARY)
+            _, th = cv2.threshold(image_edges, parms[1], 255, cv2.THRESH_BINARY_INV)
             return th
 
+
 def main():
+    sectionA()
+
 
 if __name__ == '__main__':
     main()
