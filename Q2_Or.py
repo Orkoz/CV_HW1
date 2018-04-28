@@ -25,19 +25,28 @@ def sectionA():
     canny_thresholds = [50, 100, 150, 200]
     laplace_parms = [1, 3, 5, 0]
 
+    sobel__th = [50, 100, 150]
+    canny__th = [50, 100, 150]
+    laplace_th = [50, 100, 150]
+
+    th = [canny__th, laplace_th, sobel__th]
     parms = [canny_thresholds, laplace_parms, sobel_ksize]
     opertors = ['canny', 'gaussian laplace', 'sobel']
 
     for image in images:
         for j in range(0, 3):
-            plt.figure(), plt.tight_layout()
-            plt.subplot(2, 3, 2), plt.imshow(image, cmap='gray')
+            plt.figure(figsize=(15, 15)), plt.tight_layout()
+            plt.subplot(5, 3, 2), plt.imshow(image, cmap='gray')
             plt.title('original image'), plt.xticks([]), plt.yticks([])
             for i in range(0, 3):
                 im = apply_filter(image, opertors[j], [parms[j][i], parms[j][i+1]], True)
-                plt.subplot(2, 3, i+4), plt.imshow(im, cmap='gray')
-                plt.title(opertors[j]+' with '+str(parms[j][i])), plt.xticks([]), plt.yticks([])
-            plt.suptitle(opertors[j], fontsize=20)
+                plt.subplot(5, 3, i+4), plt.imshow(im, cmap='gray')
+                plt.title('Kernel size = ' + str(parms[j][i]) + ' Threshold = adaptive'), plt.xticks([]), plt.yticks([])
+                for z in range(0, 3):
+                    im = apply_filter(image, opertors[j], [parms[j][i], th[j][z]])
+                    plt.subplot(5, 3, i + 7 + z*3), plt.imshow(im, cmap='gray')
+                    plt.title('Kernel size = ' + str(parms[j][i]) + ' Threshold = ' + str(th[j][z])), plt.xticks([]), plt.yticks([])
+            plt.suptitle(opertors[j], fontsize=30)
             plt.show()
 
 
@@ -50,14 +59,14 @@ def apply_filter(image, filter, parms, adaptive=False):
         if adaptive:
             return cv2.adaptiveThreshold(image_edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY_INV, 11, 2)
         else:
-            _, th = cv2.threshold(image_edges, parms[1], 255, cv2.THRESH_BINARY_INV)
+            _, th = cv2.threshold(image_edges, parms[1], 255, cv2.THRESH_BINARY)
             return th
     elif filter == 'sobel':
         image_edges = cv2.Sobel(image, -1, 1, 1, ksize=parms[0])
         if adaptive:
             return cv2.adaptiveThreshold(image_edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY_INV, 11, 2)
         else:
-            _, th = cv2.threshold(image_edges, parms[1], 255, cv2.THRESH_BINARY_INV)
+            _, th = cv2.threshold(image_edges, parms[1], 255, cv2.THRESH_BINARY)
             return th
 
 
